@@ -20,7 +20,7 @@ type HTTPServer struct {
 	config *HTTPConfig
 
 	auth CredentialValidator
-	dial func(network, address string) (net.Conn, error)
+	dials map[string]func(network, address string) (net.Conn, error)
 
 	authRequired bool
 }
@@ -56,8 +56,14 @@ func (s *HTTPServer) handleConn(req *http.Request, conn net.Conn) (peer net.Conn
 		port := "443"
 		addr = net.JoinHostPort(addr, port)
 	}
+	
+	var d func(network string, address string) (net.Conn, error)
+	for ip, dial := range s.dials {
+		fmt.Println(ip)
+		d = dial
+	}
 
-	peer, err = s.dial("tcp", addr)
+	peer, err = d("tcp", addr)
 	if err != nil {
 		return peer, fmt.Errorf("tun tcp dial failed: %w", err)
 	}
@@ -78,7 +84,26 @@ func (s *HTTPServer) handle(req *http.Request) (peer net.Conn, err error) {
 		addr = net.JoinHostPort(addr, port)
 	}
 
-	peer, err = s.dial("tcp", addr)
+	var d func(network string, address string) (net.Conn, error)
+	for ip, dial := range s.dials {
+		dialIpParts := strings.Split(ip, "/")
+		dialIPWithoutSubnet := dialIpParts[0]
+		
+		connectIpParts := strings.Split(addr, ":")
+		connectIpWithoutPort := connectIpParts[0]
+
+		fmt.Println(dialIPWithoutSubnet, connectIpWithoutPort)
+		if connectIpWithoutPort == dialIPWithoutSubnet {
+			d = dial
+			break
+		}
+	}
+
+	if d == nil {
+		return nil, fmt.Errorf("no tun interface for ip")
+	}
+
+	peer, err = d("tcp", addr)
 	if err != nil {
 		return peer, fmt.Errorf("tun tcp dial failed: %w", err)
 	}

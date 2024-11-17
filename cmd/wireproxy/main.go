@@ -6,7 +6,7 @@ import (
 	"github.com/landlock-lsm/go-landlock/landlock"
 	"log"
 	"net"
-	"net/http"
+	_ "net/http"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -138,14 +138,14 @@ func lockNetwork(sections []wireproxy.RoutineSpawner, infoAddr *string) {
 
 	for _, section := range sections {
 		switch section := section.(type) {
-		case *wireproxy.TCPServerTunnelConfig:
-			rules = append(rules, landlock.ConnectTCP(extractPort(section.Target)))
+		// case *wireproxy.TCPServerTunnelConfig:
+		// 	rules = append(rules, landlock.ConnectTCP(extractPort(section.Target)))
 		case *wireproxy.HTTPConfig:
 			rules = append(rules, landlock.BindTCP(extractPort(section.BindAddress)))
-		case *wireproxy.TCPClientTunnelConfig:
-			rules = append(rules, landlock.ConnectTCP(uint16(section.BindAddress.Port)))
-		case *wireproxy.Socks5Config:
-			rules = append(rules, landlock.BindTCP(extractPort(section.BindAddress)))
+		// case *wireproxy.TCPClientTunnelConfig:
+		// 	rules = append(rules, landlock.ConnectTCP(uint16(section.BindAddress.Port)))
+		// case *wireproxy.Socks5Config:
+		// 	rules = append(rules, landlock.BindTCP(extractPort(section.BindAddress)))
 		}
 	}
 
@@ -253,16 +253,18 @@ func main() {
 		go spawner.SpawnRoutine(tun)
 	}
 
-	tun.StartPingIPs()
-
-	if *info != "" {
-		go func() {
-			err := http.ListenAndServe(*info, tun)
-			if err != nil {
-				panic(err)
-			}
-		}()
+	for _, tun := range tun {
+		tun.StartPingIPs()
 	}
+
+	// if *info != "" {
+	// 	go func() {
+	// 		err := http.ListenAndServe(*info, tun)
+	// 		if err != nil {
+	// 			panic(err)
+	// 		}
+	// 	}()
+	// }
 
 	<-ctx.Done()
 }

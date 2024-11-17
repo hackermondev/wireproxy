@@ -53,7 +53,7 @@ type VirtualTun struct {
 
 // RoutineSpawner spawns a routine (e.g. socks5, tcp static routes) after the configuration is parsed
 type RoutineSpawner interface {
-	SpawnRoutine(vt *VirtualTun)
+	SpawnRoutine(vt map[string]VirtualTun)
 }
 
 type addressPort struct {
@@ -163,10 +163,15 @@ func (config *Socks5Config) SpawnRoutine(vt *VirtualTun) {
 }
 
 // SpawnRoutine spawns a http server.
-func (config *HTTPConfig) SpawnRoutine(vt *VirtualTun) {
+func (config *HTTPConfig) SpawnRoutine(vt map[string]VirtualTun) {
+	dials := make(map[string]func(network, address string) (net.Conn, error))
+	for a, t := range vt {
+		dials[a] = t.Tnet.Dial
+	}
+
 	server := &HTTPServer{
 		config: config,
-		dial:   vt.Tnet.Dial,
+		dials:   dials,
 		auth:   CredentialValidator{config.Username, config.Password},
 	}
 	if config.Username != "" || config.Password != "" {

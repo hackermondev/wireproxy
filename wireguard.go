@@ -16,7 +16,7 @@ import (
 type DeviceSetting struct {
 	IpcRequest string
 	DNS        []netip.Addr
-	DeviceAddr []netip.Addr
+	DeviceAddr map[int]netip.Addr
 	MTU        int
 }
 
@@ -59,32 +59,43 @@ func CreateIPCRequest(conf *DeviceConfig) (*DeviceSetting, error) {
 }
 
 // StartWireguard creates a tun interface on netstack given a configuration
-func StartWireguard(conf *DeviceConfig, logLevel int) (*VirtualTun, error) {
+func StartWireguard(conf *DeviceConfig, logLevel int) (map[string]VirtualTun, error) {
 	setting, err := CreateIPCRequest(conf)
 	if err != nil {
 		return nil, err
 	}
 
-	tun, tnet, err := netstack.CreateNetTUN(setting.DeviceAddr, setting.DNS, setting.MTU)
-	if err != nil {
-		return nil, err
-	}
-	dev := device.NewDevice(tun, conn.NewDefaultBind(), device.NewLogger(logLevel, ""))
-	err = dev.IpcSet(setting.IpcRequest)
-	if err != nil {
-		return nil, err
+	devices := make(map[string]VirtualTun)
+	for index, address := range setting.DeviceAddr {
+		peer_equiv := conf.Peers[index]
+		peer_address := peer_equiv.AllowedIPs[0]
+
+		tun, tnet, err := netstack.CreateNetTUN([]netip.Addr{address}, setting.DNS, setting.MTU)
+		if err != nil {
+			return nil, err
+		}
+
+		dev := device.NewDevice(tun, conn.NewDefaultBind(), device.NewLogger(logLevel, ""))
+		err = dev.IpcSet(setting.IpcRequest)
+		if err != nil {
+			return nil, err
+		}
+
+		err = dev.Up()
+		if err != nil {
+			return nil, err
+		}
+
+		devices[peer_address.String()] = VirtualTun{
+			Tnet:       tnet,
+			Dev:        dev,
+			Conf:       conf,
+			SystemDNS:  len(setting.DNS) == 0,
+			PingRecord: make(map[string]uint64),
+		};
 	}
 
-	err = dev.Up()
-	if err != nil {
-		return nil, err
-	}
+	
 
-	return &VirtualTun{
-		Tnet:       tnet,
-		Dev:        dev,
-		Conf:       conf,
-		SystemDNS:  len(setting.DNS) == 0,
-		PingRecord: make(map[string]uint64),
-	}, nil
+	return devices, nil
 }

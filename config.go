@@ -24,7 +24,7 @@ type PeerConfig struct {
 // DeviceConfig contains the information to initiate a wireguard connection
 type DeviceConfig struct {
 	SecretKey          string
-	Endpoint           []netip.Addr
+	Endpoint           map[int]netip.Addr
 	Peers              []PeerConfig
 	DNS                []netip.Addr
 	MTU                int
@@ -247,7 +247,11 @@ func ParseInterface(cfg *ini.File, device *DeviceConfig) error {
 		return err
 	}
 
-	device.Endpoint = address
+	device.Endpoint = make(map[int]netip.Addr)
+	for index, a := range address {
+		// peer := device.Peers[index]
+		device.Endpoint[index] = a
+	}
 
 	privKey, err := parseBase64KeyToHex(section, "PrivateKey")
 	if err != nil {
@@ -352,69 +356,69 @@ func ParsePeers(cfg *ini.File, peers *[]PeerConfig) error {
 	return nil
 }
 
-func parseTCPClientTunnelConfig(section *ini.Section) (RoutineSpawner, error) {
-	config := &TCPClientTunnelConfig{}
-	tcpAddr, err := parseTCPAddr(section, "BindAddress")
-	if err != nil {
-		return nil, err
-	}
-	config.BindAddress = tcpAddr
+// func parseTCPClientTunnelConfig(section *ini.Section) (RoutineSpawner, error) {
+// 	config := &TCPClientTunnelConfig{}
+// 	tcpAddr, err := parseTCPAddr(section, "BindAddress")
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	config.BindAddress = tcpAddr
 
-	targetSection, err := parseString(section, "Target")
-	if err != nil {
-		return nil, err
-	}
-	config.Target = targetSection
+// 	targetSection, err := parseString(section, "Target")
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	config.Target = targetSection
 
-	return config, nil
-}
+// 	return config, nil
+// }
 
-func parseSTDIOTunnelConfig(section *ini.Section) (RoutineSpawner, error) {
-	config := &STDIOTunnelConfig{}
-	targetSection, err := parseString(section, "Target")
-	if err != nil {
-		return nil, err
-	}
-	config.Target = targetSection
+// func parseSTDIOTunnelConfig(section *ini.Section) (RoutineSpawner, error) {
+// 	config := &STDIOTunnelConfig{}
+// 	targetSection, err := parseString(section, "Target")
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	config.Target = targetSection
 
-	return config, nil
-}
+// 	return config, nil
+// }
 
-func parseTCPServerTunnelConfig(section *ini.Section) (RoutineSpawner, error) {
-	config := &TCPServerTunnelConfig{}
+// func parseTCPServerTunnelConfig(section *ini.Section) (RoutineSpawner, error) {
+// 	config := &TCPServerTunnelConfig{}
 
-	listenPort, err := parsePort(section, "ListenPort")
-	if err != nil {
-		return nil, err
-	}
-	config.ListenPort = listenPort
+// 	listenPort, err := parsePort(section, "ListenPort")
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	config.ListenPort = listenPort
 
-	target, err := parseString(section, "Target")
-	if err != nil {
-		return nil, err
-	}
-	config.Target = target
+// 	target, err := parseString(section, "Target")
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	config.Target = target
 
-	return config, nil
-}
+// 	return config, nil
+// }
 
-func parseSocks5Config(section *ini.Section) (RoutineSpawner, error) {
-	config := &Socks5Config{}
+// func parseSocks5Config(section *ini.Section) (RoutineSpawner, error) {
+// 	config := &Socks5Config{}
 
-	bindAddress, err := parseString(section, "BindAddress")
-	if err != nil {
-		return nil, err
-	}
-	config.BindAddress = bindAddress
+// 	bindAddress, err := parseString(section, "BindAddress")
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	config.BindAddress = bindAddress
 
-	username, _ := parseString(section, "Username")
-	config.Username = username
+// 	username, _ := parseString(section, "Username")
+// 	config.Username = username
 
-	password, _ := parseString(section, "Password")
-	config.Password = password
+// 	password, _ := parseString(section, "Password")
+// 	config.Password = password
 
-	return config, nil
-}
+// 	return config, nil
+// }
 
 func parseHTTPConfig(section *ini.Section) (RoutineSpawner, error) {
 	config := &HTTPConfig{}
@@ -481,37 +485,38 @@ func ParseConfig(path string) (*Configuration, error) {
 		}
 	}
 
-	err = ParseInterface(wgCfg, device)
+	
+	err = ParsePeers(wgCfg, &device.Peers)
 	if err != nil {
 		return nil, err
 	}
 
-	err = ParsePeers(wgCfg, &device.Peers)
+	err = ParseInterface(wgCfg, device)
 	if err != nil {
 		return nil, err
 	}
 
 	var routinesSpawners []RoutineSpawner
 
-	err = parseRoutinesConfig(&routinesSpawners, cfg, "TCPClientTunnel", parseTCPClientTunnelConfig)
-	if err != nil {
-		return nil, err
-	}
+	// err = parseRoutinesConfig(&routinesSpawners, cfg, "TCPClientTunnel", parseTCPClientTunnelConfig)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	err = parseRoutinesConfig(&routinesSpawners, cfg, "STDIOTunnel", parseSTDIOTunnelConfig)
-	if err != nil {
-		return nil, err
-	}
+	// err = parseRoutinesConfig(&routinesSpawners, cfg, "STDIOTunnel", parseSTDIOTunnelConfig)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	err = parseRoutinesConfig(&routinesSpawners, cfg, "TCPServerTunnel", parseTCPServerTunnelConfig)
-	if err != nil {
-		return nil, err
-	}
+	// err = parseRoutinesConfig(&routinesSpawners, cfg, "TCPServerTunnel", parseTCPServerTunnelConfig)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
-	err = parseRoutinesConfig(&routinesSpawners, cfg, "Socks5", parseSocks5Config)
-	if err != nil {
-		return nil, err
-	}
+	// err = parseRoutinesConfig(&routinesSpawners, cfg, "Socks5", parseSocks5Config)
+	// if err != nil {
+	// 	return nil, err
+	// }
 
 	err = parseRoutinesConfig(&routinesSpawners, cfg, "http", parseHTTPConfig)
 	if err != nil {
